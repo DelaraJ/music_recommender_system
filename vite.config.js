@@ -1,8 +1,8 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
 
+// Minimal Vite config without @vitejs/plugin-react.
+// Note: you won't have React fast refresh or plugin-specific optimizations.
 export default defineConfig({
-  plugins: [react()],
   server: {
     port: 5173
   }
