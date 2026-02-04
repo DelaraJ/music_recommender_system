@@ -9,5 +9,7 @@ export const api = {
   getPlaylistsByUser: mock.getPlaylistsByUser,
   createPlaylist: mock.createPlaylist,
   addSongToPlaylist: mock.addSongToPlaylist,
+  removeSongFromPlaylist: mock.removeSongFromPlaylist,
+  deletePlaylist: mock.deletePlaylist,
   toggleLikeSong: mock.toggleLikeSong,
 };

@@ -9,7 +9,8 @@ const STORAGE_KEYS = {
   PLAYLISTS: "smf_playlists_v1",
 };
 
-// initial mock songs
+// initial mock songs with local audio files
+// Place your audio files in /public/audio/ folder
 const initialSongs = [
   {
     id: "s1",
@@ -17,7 +18,8 @@ const initialSongs = [
     artist: "Aurora Sky",
     album: "Midnight Drive",
     cover: "https://picsum.photos/seed/s1/200/200",
-    duration: 210
+    duration: 210,
+    audioUrl: "/audio/song1.mp3" // Add your audio files here
   },
   {
     id: "s2",
@@ -25,7 +27,8 @@ const initialSongs = [
     artist: "Blue Harbor",
     album: "Shoreline",
     cover: "https://picsum.photos/seed/s2/200/200",
-    duration: 185
+    duration: 185,
+    audioUrl: "/audio/song2.mp3"
   },
   {
     id: "s3",
@@ -33,7 +36,8 @@ const initialSongs = [
     artist: "Holo Tone",
     album: "Dawn",
     cover: "https://picsum.photos/seed/s3/200/200",
-    duration: 240
+    duration: 240,
+    audioUrl: "/audio/song3.mp3"
   },
   {
     id: "s4",
@@ -41,8 +45,28 @@ const initialSongs = [
     artist: "Nightwalker",
     album: "Uptown",
     cover: "https://picsum.photos/seed/s4/200/200",
-    duration: 200
+    duration: 200,
+    audioUrl: "/audio/song4.mp3"
+  },
+  {
+    id: "s5",
+    title: "Moonlight Dance",
+    artist: "Luna Rose",
+    album: "Stellar",
+    cover: "https://picsum.photos/seed/s5/200/200",
+    duration: 195,
+    audioUrl: "/audio/song5.mp3"
+  },
+  {
+    id: "s6",
+    title: "Electric Dreams",
+    artist: "Synth Wave",
+    album: "Retro Future",
+    cover: "https://picsum.photos/seed/s6/200/200",
+    duration: 220,
+    audioUrl: "/audio/song6.mp3"
   }
+  
 ];
 
 function read(key) {
@@ -134,4 +158,22 @@ export async function toggleLikeSong({ userId, songId }) {
   }
   write(STORAGE_KEYS.USERS, users);
   return { liked: user.liked };
+}
+
+export async function removeSongFromPlaylist({ playlistId, songId }) {
+  await delay();
+  const all = read(STORAGE_KEYS.PLAYLISTS) || [];
+  const p = all.find((x) => x.id === playlistId);
+  if (!p) throw new Error("Playlist not found");
+  p.songs = p.songs.filter((s) => s !== songId);
+  write(STORAGE_KEYS.PLAYLISTS, all);
+  return p;
+}
+
+export async function deletePlaylist({ playlistId }) {
+  await delay();
+  const all = read(STORAGE_KEYS.PLAYLISTS) || [];
+  const filtered = all.filter((p) => p.id !== playlistId);
+  write(STORAGE_KEYS.PLAYLISTS, filtered);
+  return true;
 }
