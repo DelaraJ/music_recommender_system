@@ -6,7 +6,7 @@ function getToken() {
   const auth = localStorage.getItem("smf_auth_v1");
   if (auth) {
     const parsed = JSON.parse(auth);
-    return parsed;
+    return parsed.token;
   }
   return null;
 }
@@ -89,6 +89,7 @@ export async function register({ username, password }) {
     id: data.user?.id || data.id,
     username: data.user?.username || username,
     recomm_playlist_id: data.recomm_playlist_id,
+    avg_interest: data.avg_interest,
     created_at: data.created_at,
     token: data.token
   };

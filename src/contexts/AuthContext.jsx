@@ -16,12 +16,14 @@ export function AuthProvider({ children }) {
 
   async function login({ username, password }) {
     const userData = await api.login({ username, password });
-    setUser(userData.token);
+    localStorage.setItem("smf_auth_v1", JSON.stringify(userData));
+    setUser(userData);
     return userData;
   }
   async function register({ username, password }) {
     const userData = await api.register({ username, password });
-    setUser(userData.token);
+    localStorage.setItem("smf_auth_v1", JSON.stringify(userData));
+    setUser(userData);
     return userData;
   }
   function logout() {
@@ -30,7 +32,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, username }}>
+    <AuthContext.Provider value={{ user, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
