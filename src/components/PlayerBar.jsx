@@ -101,13 +101,13 @@ export default function PlayerBar() {
             <button className="player-control-btn" onClick={playNext} title="Next">
               ⏭
             </button>
-            <button 
+            {/* <button 
               className={`player-control-btn ${repeat ? "active" : ""}`} 
               onClick={toggleRepeat} 
               title={repeat ? "Repeat: On" : "Repeat: Off"}
             >
               🔁
-            </button>
+            </button> */}
           </div>
           
           <div className="player-progress-container">
