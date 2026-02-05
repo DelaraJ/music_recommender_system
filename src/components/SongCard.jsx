@@ -1,120 +1,186 @@
-import React, { useState } from "react";
-import { usePlayer } from "../contexts/PlayerContext.jsx";
-import { useAuth } from "../contexts/AuthContext.jsx";
+import React, { useState, useEffect, useRef } from "react";
 import { useData } from "../contexts/DataContext.jsx";
+import { useAuth } from "../contexts/AuthContext.jsx";
+import { usePlayer } from "../contexts/PlayerContext.jsx";
 
-export default function PlayerBar() {
-  const { currentSong, isPlaying, currentTime, duration, volume, repeat, togglePlayPause, seek, changeVolume, playNext, playPrevious, toggleRepeat, handleLikeInteraction } = usePlayer();
+export default function SongCard({ song, allSongs = [] }) {
+  const { toggleLike, toggleDislike, playlists, addSongToPlaylist } = useData();
   const { user } = useAuth();
-  const { toggleLike } = useData();
-  const [showVolume, setShowVolume] = useState(false);
+  const { playSong, currentSong, isPlaying, togglePlayPause } = usePlayer();
+  const [showPlaylistMenu, setShowPlaylistMenu] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState("bottom");
+  const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
 
-  if (!currentSong) return null;
+  const songState = song.state || 'none'; // 'liked', 'disliked', or 'none'
+  const isCurrentSong = currentSong?.id === song.id;
 
-  const isLiked = user?.liked?.includes(currentSong.id);
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowPlaylistMenu(false);
+      }
+    }
 
-  function formatTime(seconds) {
-    if (!seconds || isNaN(seconds)) return "0:00";
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  }
+    if (showPlaylistMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showPlaylistMenu]);
 
-  function handleSeek(e) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const percentage = x / rect.width;
-    seek(percentage * duration);
-  }
+  // Calculate dropdown position
+  useEffect(() => {
+    if (showPlaylistMenu && buttonRef.current) {
+      const buttonRect = buttonRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const spaceBelow = viewportHeight - buttonRect.bottom;
+      const dropdownHeight = 300; // max-height from CSS
 
-  async function handleToggleLike() {
-    if (!user) return;
-    const newLiked = await toggleLike(currentSong.id);
+      if (spaceBelow < dropdownHeight && buttonRect.top > dropdownHeight) {
+        setDropdownPosition("top");
+      } else {
+        setDropdownPosition("bottom");
+      }
+    }
+  }, [showPlaylistMenu]);
+
+  async function handleToggleLike(e) {
+    e.stopPropagation();
+    if (!user) return alert("Please login to like songs");
     
-    // Send like/unlike interaction to API
-    handleLikeInteraction(currentSong.id, !isLiked);
-    
-    // Update user in localStorage
-    const stored = JSON.parse(localStorage.getItem("smf_auth_v1") || "null");
-    if (stored) {
-      stored.liked = newLiked;
-      localStorage.setItem("smf_auth_v1", JSON.stringify(stored));
+    try {
+      await toggleLike(song.id, songState);
+    } catch (error) {
+      console.error("Failed to toggle like:", error);
     }
   }
 
-  const progress = duration ? (currentTime / duration) * 100 : 0;
+  async function handleToggleDislike(e) {
+    e.stopPropagation();
+    if (!user) return alert("Please login to dislike songs");
+    
+    try {
+      await toggleDislike(song.id, songState);
+    } catch (error) {
+      console.error("Failed to toggle dislike:", error);
+    }
+  }
+
+  function handlePlay(e) {
+    e.stopPropagation();
+    if (isCurrentSong) {
+      togglePlayPause();
+    } else {
+      playSong(song, allSongs);
+    }
+  }
+
+  function formatDuration(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  }
+
+  function togglePlaylistMenu(e) {
+    e.stopPropagation();
+    if (!user) return alert("Please login to add songs to playlists");
+    setShowPlaylistMenu(!showPlaylistMenu);
+  }
+
+  async function addToPlaylist(playlistId, e) {
+    e.stopPropagation();
+    try {
+      await addSongToPlaylist(playlistId, song.id);
+      setShowPlaylistMenu(false);
+      alert("Song added to playlist!");
+    } catch (err) {
+      alert("Failed to add song to playlist");
+    }
+  }
 
   return (
-    <div className="player-bar">
-      <div className="player-content">
-        {/* Song Info */}
-        <div className="player-song-info">
-          <img src={currentSong.cover} alt={currentSong.title} />
-          <div>
-            <div className="player-title">{currentSong.title}</div>
-            <div className="player-artist">{currentSong.artist}</div>
-          </div>
-          {user && (
-            <button 
-              className={`player-like-btn ${isLiked ? "liked" : ""}`}
-              onClick={handleToggleLike}
-              title={isLiked ? "Unlike" : "Like"}
-            >
-              {isLiked ? "❤" : "🤍"}
-            </button>
-          )}
-        </div>
-
-        {/* Playback Controls */}
-        <div className="player-controls">
-          <div className="player-buttons">
-            <button className="player-control-btn" onClick={playPrevious} title="Previous">
-              ⏮
-            </button>
-            <button className="player-play-btn" onClick={togglePlayPause} title={isPlaying ? "Pause" : "Play"}>
-              {isPlaying ? "⏸" : "▶"}
-            </button>
-            <button className="player-control-btn" onClick={playNext} title="Next">
-              ⏭
-            </button>
-            <button 
-              className={`player-control-btn ${repeat ? "active" : ""}`} 
-              onClick={toggleRepeat} 
-              title={repeat ? "Repeat: On" : "Repeat: Off"}
-            >
-              🔁
-            </button>
-          </div>
-          
-          <div className="player-progress-container">
-            <span className="player-time">{formatTime(currentTime)}</span>
-            <div className="player-progress-bar" onClick={handleSeek}>
-              <div className="player-progress-fill" style={{ width: `${progress}%` }}>
-                <div className="player-progress-thumb"></div>
-              </div>
+    <div className={`song card ${showPlaylistMenu ? "song-dropdown-active" : ""}`} onClick={handlePlay} style={{ cursor: "pointer" }}>
+      <div className="song-cover-container">
+        <img src={song.cover} alt={song.title} />
+        <button className="song-play-overlay" onClick={handlePlay}>
+          {isCurrentSong && isPlaying ? "⏸" : "▶"}
+        </button>
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, color: isCurrentSong ? "var(--accent)" : "inherit" }}>
+              {song.title}
             </div>
-            <span className="player-time">{formatTime(duration)}</span>
+            <div className="muted small">{song.artist} • {song.album}</div>
+            <div className="muted small" style={{ marginTop: 4 }}>{formatDuration(song.duration)}</div>
           </div>
-        </div>
-
-        {/* Volume Control */}
-        <div className="player-volume" onMouseEnter={() => setShowVolume(true)} onMouseLeave={() => setShowVolume(false)}>
-          <button className="player-volume-btn">
-            {volume === 0 ? "🔇" : volume < 0.5 ? "🔉" : "🔊"}
-          </button>
-          {showVolume && (
-            <div className="player-volume-slider-container">
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={volume}
-                onChange={(e) => changeVolume(parseFloat(e.target.value))}
-                className="player-volume-slider"
-              />
-            </div>
-          )}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {user && (
+              <>
+                <button 
+                  className="btn-icon" 
+                  onClick={handleToggleLike}
+                  title={songState === 'liked' ? "Unlike" : "Like"}
+                  style={{ padding: 0, width: 24, height: 24 }}
+                >
+                  <img 
+                    src={songState === 'liked' ? "/like_filled.svg" : "/like_initial.svg"} 
+                    alt="Like" 
+                    style={{ width: '100%', height: '100%', filter: songState === 'liked' ? 'none' : 'brightness(0) saturate(100%) invert(71%) sepia(0%) saturate(0%) hue-rotate(212deg) brightness(94%) contrast(89%)' }}
+                  />
+                </button>
+                <button 
+                  className="btn-icon" 
+                  onClick={handleToggleDislike}
+                  title={songState === 'disliked' ? "Remove dislike" : "Dislike"}
+                  style={{ padding: 0, width: 24, height: 24 }}
+                >
+                  <img 
+                    src={songState === 'disliked' ? "/dislike_filled.svg" : "/dislike_initial.svg"} 
+                    alt="Dislike" 
+                    style={{ width: '100%', height: '100%', filter: songState === 'disliked' ? 'none' : 'brightness(0) saturate(100%) invert(71%) sepia(0%) saturate(0%) hue-rotate(212deg) brightness(94%) contrast(89%)' }}
+                  />
+                </button>
+                <div style={{ position: "relative" }} ref={dropdownRef}>
+                  <button 
+                    ref={buttonRef}
+                    className="btn-icon" 
+                    onClick={togglePlaylistMenu}
+                    title="Add to playlist"
+                  >
+                    ➕
+                  </button>
+                  {showPlaylistMenu && (
+                    <div 
+                      className={`playlist-dropdown ${dropdownPosition === "top" ? "playlist-dropdown-top" : ""}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div style={{ fontWeight: 600, marginBottom: 8, fontSize: "0.85rem" }}>
+                        Add to playlist
+                      </div>
+                      {playlists.length > 0 ? (
+                        playlists.map((playlist) => (
+                          <button
+                            key={playlist.id}
+                            className="playlist-dropdown-item"
+                            onClick={(e) => addToPlaylist(playlist.id, e)}
+                            disabled={playlist.songs?.includes(song.id)}
+                          >
+                            {playlist.name}
+                            {playlist.songs?.includes(song.id) && " ✓"}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="muted small">No playlists yet</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 
 export default function NavBar() {
-  const { user, logout } = useAuth();
+  const { user, logout, username } = useAuth();
   const navigate = useNavigate();
 
   function doLogout() {
@@ -22,7 +22,7 @@ export default function NavBar() {
       <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
         {user ? (
           <>
-            <div className="muted small">Signed in as <strong style={{color:"var(--accent)"}}>{user.username}</strong></div>
+            <div className="muted small">Signed in as <strong style={{color:"var(--accent)"}}>{username}</strong></div>
             <button className="btn secondary" onClick={doLogout}>Logout</button>
           </>
         ) : (

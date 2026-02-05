@@ -4,14 +4,16 @@ import { useAuth } from "../contexts/AuthContext.jsx";
 import { useData } from "../contexts/DataContext.jsx";
 
 export default function PlayerBar() {
-  const { currentSong, isPlaying, currentTime, duration, volume, repeat, togglePlayPause, seek, changeVolume, playNext, playPrevious, toggleRepeat, handleLikeInteraction } = usePlayer();
+  const { currentSong, isPlaying, currentTime, duration, volume, repeat, togglePlayPause, seek, changeVolume, playNext, playPrevious, toggleRepeat } = usePlayer();
   const { user } = useAuth();
-  const { toggleLike } = useData();
+  const { toggleLike, toggleDislike, songs } = useData();
   const [showVolume, setShowVolume] = useState(false);
 
   if (!currentSong) return null;
 
-  const isLiked = user?.liked?.includes(currentSong.id);
+  // Find the current song in the songs array to get its state
+  const songInList = songs.find(s => s.id === currentSong.id);
+  const songState = songInList?.state || currentSong.state || 'none';
 
   function formatTime(seconds) {
     if (!seconds || isNaN(seconds)) return "0:00";
@@ -29,16 +31,19 @@ export default function PlayerBar() {
 
   async function handleToggleLike() {
     if (!user) return;
-    const newLiked = await toggleLike(currentSong.id);
-    
-    // Send like/unlike interaction to API
-    handleLikeInteraction(currentSong.id, !isLiked);
-    
-    // Update user in localStorage
-    const stored = JSON.parse(localStorage.getItem("smf_auth_v1") || "null");
-    if (stored) {
-      stored.liked = newLiked;
-      localStorage.setItem("smf_auth_v1", JSON.stringify(stored));
+    try {
+      await toggleLike(currentSong.id, songState);
+    } catch (error) {
+      console.error("Failed to toggle like:", error);
+    }
+  }
+
+  async function handleToggleDislike() {
+    if (!user) return;
+    try {
+      await toggleDislike(currentSong.id, songState);
+    } catch (error) {
+      console.error("Failed to toggle dislike:", error);
     }
   }
 
@@ -55,13 +60,32 @@ export default function PlayerBar() {
             <div className="player-artist">{currentSong.artist}</div>
           </div>
           {user && (
-            <button 
-              className={`player-like-btn ${isLiked ? "liked" : ""}`}
-              onClick={handleToggleLike}
-              title={isLiked ? "Unlike" : "Like"}
-            >
-              {isLiked ? "❤" : "🤍"}
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button 
+                className="player-like-btn"
+                onClick={handleToggleLike}
+                title={songState === 'liked' ? "Unlike" : "Like"}
+                style={{ padding: 0, width: 24, height: 24 }}
+              >
+                <img 
+                  src={songState === 'liked' ? "/like_filled.svg" : "/like_initial.svg"} 
+                  alt="Like" 
+                  style={{ width: '100%', height: '100%', filter: songState === 'liked' ? 'none' : 'brightness(0) saturate(100%) invert(71%) sepia(0%) saturate(0%) hue-rotate(212deg) brightness(94%) contrast(89%)' }}
+                />
+              </button>
+              <button 
+                className="player-like-btn"
+                onClick={handleToggleDislike}
+                title={songState === 'disliked' ? "Remove dislike" : "Dislike"}
+                style={{ padding: 0, width: 24, height: 24 }}
+              >
+                <img 
+                  src={songState === 'disliked' ? "/dislike_filled.svg" : "/dislike_initial.svg"} 
+                  alt="Dislike" 
+                  style={{ width: '100%', height: '100%', filter: songState === 'disliked' ? 'none' : 'brightness(0) saturate(100%) invert(71%) sepia(0%) saturate(0%) hue-rotate(212deg) brightness(94%) contrast(89%)' }}
+                />
+              </button>
+            </div>
           )}
         </div>
 

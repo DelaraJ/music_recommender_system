@@ -12,16 +12,27 @@ export function DataProvider({ children }) {
 
   async function loadSongs() {
     setLoading(true);
-    const s = await api.getSongs();
-    setSongs(s);
-    setLoading(false);
+    try {
+      const s = await api.getSongs();
+      setSongs(s);
+    } catch (error) {
+      console.error("Failed to load songs:", error);
+    } finally {
+      setLoading(false);
+    }
   }
+
   async function loadPlaylists() {
     if (!user) return setPlaylists([]);
     setLoading(true);
-    const p = await api.getPlaylistsByUser(user.id);
-    setPlaylists(p);
-    setLoading(false);
+    try {
+      const p = await api.getPlaylistsByUser();
+      setPlaylists(p);
+    } catch (error) {
+      console.error("Failed to load playlists:", error);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -33,7 +44,7 @@ export function DataProvider({ children }) {
   }, [user]);
 
   async function createPlaylist(name, description) {
-    const p = await api.createPlaylist({ ownerId: user.id, name, description });
+    const p = await api.createPlaylist({ name, description });
     setPlaylists((prev) => [p, ...prev]);
     return p;
   }
@@ -43,20 +54,65 @@ export function DataProvider({ children }) {
     setPlaylists((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
   }
 
-  async function toggleLike(songId) {
-    const updated = await api.toggleLikeSong({ userId: user.id, songId });
-    // update user liked in local auth storage (we rely on backend to return new liked array)
-    const stored = JSON.parse(localStorage.getItem("smf_auth_v1") || "null");
-    if (stored) {
-      stored.liked = updated.liked;
-      localStorage.setItem("smf_auth_v1", JSON.stringify(stored));
+  // Toggle like: if currently liked, unlike it; otherwise like it
+  async function toggleLike(songId, currentState) {
+    if (!user) return;
+    
+    try {
+      const interactionType = currentState === 'liked' ? 'unlike' : 'like';
+      await api.sendInteraction(songId, interactionType);
+      
+      // Update songs state
+      setSongs(prevSongs => 
+        prevSongs.map(song => 
+          song.id === songId 
+            ? { ...song, state: currentState === 'liked' ? 'none' : 'liked' }
+            : song
+        )
+      );
+      
+      return currentState === 'liked' ? 'none' : 'liked';
+    } catch (error) {
+      console.error("Failed to toggle like:", error);
+      throw error;
     }
-    // no need to update songs list (stateless) — UI will consult user.liked
-    return updated.liked;
+  }
+
+  // Toggle dislike: if currently disliked, undislike it; otherwise dislike it
+  async function toggleDislike(songId, currentState) {
+    if (!user) return;
+    
+    try {
+      const interactionType = currentState === 'disliked' ? 'undislike' : 'dislike';
+      await api.sendInteraction(songId, interactionType);
+      
+      // Update songs state
+      setSongs(prevSongs => 
+        prevSongs.map(song => 
+          song.id === songId 
+            ? { ...song, state: currentState === 'disliked' ? 'none' : 'disliked' }
+            : song
+        )
+      );
+      
+      return currentState === 'disliked' ? 'none' : 'disliked';
+    } catch (error) {
+      console.error("Failed to toggle dislike:", error);
+      throw error;
+    }
   }
 
   return (
-    <DataContext.Provider value={{ songs, playlists, createPlaylist, addSongToPlaylist, toggleLike, loading, reload: { loadSongs, loadPlaylists } }}>
+    <DataContext.Provider value={{ 
+      songs, 
+      playlists, 
+      createPlaylist, 
+      addSongToPlaylist, 
+      toggleLike, 
+      toggleDislike,
+      loading, 
+      reload: { loadSongs, loadPlaylists } 
+    }}>
       {children}
     </DataContext.Provider>
   );

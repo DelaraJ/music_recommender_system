@@ -4,6 +4,7 @@ import { api } from "../services/api.js";
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
+  const [username, setUserName] = useState(() => {});
   const [user, setUser] = useState(() => {
     const raw = localStorage.getItem("smf_auth_v1");
     return raw ? JSON.parse(raw) : null;
@@ -14,23 +15,22 @@ export function AuthProvider({ children }) {
   }, [user]);
 
   async function login({ username, password }) {
-    const u = await api.login({ username, password });
-    setUser(u);
-    return u;
+    const userData = await api.login({ username, password });
+    setUser(userData.token);
+    return userData;
   }
   async function register({ username, password }) {
-    const u = await api.register({ username, password });
-    // automatically login after register
-    const logged = await api.login({ username, password });
-    setUser(logged);
-    return logged;
+    const userData = await api.register({ username, password });
+    setUser(userData.token);
+    return userData;
   }
   function logout() {
     setUser(null);
+    setUserName(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, login, register, logout, username }}>
       {children}
     </AuthContext.Provider>
   );

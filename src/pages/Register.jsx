@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 
 export default function Register() {
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useAuth();
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const { register } = useAuth();
@@ -14,6 +14,7 @@ export default function Register() {
     setErr("");
     try {
       await register({ username, password });
+      await login({ username, password });
       navigate("/songs");
     } catch (e) {
       setErr(e.message);

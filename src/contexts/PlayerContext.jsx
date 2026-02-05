@@ -1,23 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from "react";
+import { api } from "../services/api.js";
 
 const PlayerContext = createContext();
-
-// API endpoint for tracking interactions
-const INTERACT_API = "http://194.147.142.26:8081";
-
-async function sendInteraction(songId, type) {
-  try {
-    await fetch(`${INTERACT_API}/${songId}/interact`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ type })
-    });
-  } catch (error) {
-    console.error('Failed to send interaction:', error);
-  }
-}
 
 export function PlayerProvider({ children }) {
   const [currentSong, setCurrentSong] = useState(null);
@@ -64,21 +48,15 @@ export function PlayerProvider({ children }) {
       setCurrentTime(0);
       
       // Send play interaction
-      sendInteraction(currentSong.id, 'play');
+      api.sendInteraction(currentSong.id, 'play').catch(console.error);
     }
   }, [currentSong]);
 
   function handleSongEnd() {
-    // Send completed interaction
-    if (currentSong) {
-      sendInteraction(currentSong.id, 'completed');
-    }
-
     if (repeat) {
       // Restart current song
       setCurrentTime(0);
       setIsPlaying(true);
-      sendInteraction(currentSong.id, 'repeat');
     } else {
       setIsPlaying(false);
       playNext();
@@ -95,22 +73,11 @@ export function PlayerProvider({ children }) {
   }
 
   function togglePlayPause() {
-    const newIsPlaying = !isPlaying;
-    setIsPlaying(newIsPlaying);
-    
-    // Send pause or resume interaction
-    if (currentSong) {
-      sendInteraction(currentSong.id, newIsPlaying ? 'resume' : 'pause');
-    }
+    setIsPlaying(!isPlaying);
   }
 
   function seek(time) {
     setCurrentTime(time);
-    
-    // Send seek interaction
-    if (currentSong) {
-      sendInteraction(currentSong.id, 'seek');
-    }
   }
 
   function changeVolume(newVolume) {
@@ -126,7 +93,7 @@ export function PlayerProvider({ children }) {
       
       // Send skip interaction for previous song
       if (currentSong) {
-        sendInteraction(currentSong.id, 'skip');
+        api.sendInteraction(currentSong.id, 'skip').catch(console.error);
       }
     }
   }
@@ -137,11 +104,6 @@ export function PlayerProvider({ children }) {
       setQueueIndex(prevIndex);
       setCurrentSong(queue[prevIndex]);
       setIsPlaying(true);
-      
-      // Send previous interaction
-      if (currentSong) {
-        sendInteraction(currentSong.id, 'previous');
-      }
     } else if (currentTime > 3) {
       // Restart current song if more than 3 seconds in
       seek(0);
@@ -159,11 +121,6 @@ export function PlayerProvider({ children }) {
   function clearQueue() {
     setQueue([]);
     setQueueIndex(-1);
-  }
-
-  // Send like/unlike interaction (called from outside)
-  function handleLikeInteraction(songId, isLiked) {
-    sendInteraction(songId, isLiked ? 'like' : 'unlike');
   }
 
   return (
@@ -184,8 +141,7 @@ export function PlayerProvider({ children }) {
         playPrevious,
         toggleRepeat,
         addToQueue,
-        clearQueue,
-        handleLikeInteraction
+        clearQueue
       }}
     >
       {children}

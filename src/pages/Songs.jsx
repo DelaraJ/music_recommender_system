@@ -17,16 +17,17 @@ export default function Songs() {
   }
 
   function playLiked() {
-    if (!user?.liked?.length) return;
-    const likedSongs = songs.filter(s => user.liked.includes(s.id));
+    const likedSongs = songs.filter(s => s.state === 'liked');
     if (likedSongs.length > 0) {
       playSong(likedSongs[0], likedSongs);
     }
   }
 
   const displaySongs = filter === "liked" && user 
-    ? songs.filter(s => user.liked?.includes(s.id))
+    ? songs.filter(s => s.state === 'liked')
     : songs;
+
+  const likedCount = songs.filter(s => s.state === 'liked').length;
 
   return (
     <div>
@@ -45,7 +46,7 @@ export default function Songs() {
                 className={`btn ${filter === "liked" ? "" : "secondary"}`} 
                 onClick={() => setFilter("liked")}
               >
-                Liked ({user.liked?.length || 0})
+                Liked ({likedCount})
               </button>
             </div>
           )}
@@ -65,7 +66,7 @@ export default function Songs() {
       
       <div className="grid" style={{ marginTop: 12 }}>
         {displaySongs.map((s) => (
-          <SongCard key={s.id} song={s} liked={user?.liked || []} allSongs={displaySongs} />
+          <SongCard key={s.id} song={s} allSongs={displaySongs} />
         ))}
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useData } from "../contexts/DataContext.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { usePlayer } from "../contexts/PlayerContext.jsx";
@@ -7,30 +7,79 @@ import { api } from "../services/api.js";
 export default function PlaylistCard({ playlist, onDelete }) {
   const { songs, addSongToPlaylist } = useData();
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [playlistTracks, setPlaylistTracks] = useState([]);
+  const [loadingTracks, setLoadingTracks] = useState(false);
   const { user } = useAuth();
   const { playSong } = usePlayer();
-  const [playlists, setPlaylists] = useState([playlist]);
 
-  const playlistSongs = playlist.songs.map((id) => songs.find((s) => s.id === id)).filter(Boolean);
+  // Load playlist tracks
+  useEffect(() => {
+    async function loadPlaylistTracks() {
+      if (!playlist.id) return;
+      
+      setLoadingTracks(true);
+      try {
+        const tracks = await api.getPlaylistTracks(playlist.id);
+        setPlaylistTracks(tracks);
+      } catch (error) {
+        console.error('Failed to load playlist tracks:', error);
+        setPlaylistTracks([]);
+      } finally {
+        setLoadingTracks(false);
+      }
+    }
 
-  // Filter songs based on search query
-  const availableSongs = songs
-    .filter(s => !playlist.songs.includes(s.id))
-    .filter(s => {
-      if (!searchQuery.trim()) return true;
-      const query = searchQuery.toLowerCase();
-      return (
-        s.title.toLowerCase().includes(query) ||
-        s.artist.toLowerCase().includes(query) ||
-        s.album.toLowerCase().includes(query)
-      );
-    });
+    loadPlaylistTracks();
+  }, [playlist.id]);
+
+  // Search tracks when query changes
+  useEffect(() => {
+    const searchTracks = async () => {
+      if (!searchQuery.trim()) {
+        setSearchResults([]);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        const results = await api.searchTracks({
+          query: searchQuery,
+          limit: 10,
+          offset: 0,
+          field: 'track_name'
+        });
+        
+        // Filter out songs already in playlist
+        const playlistTrackIds = playlistTracks.map(t => t.id);
+        const filteredResults = results.filter(s => !playlistTrackIds.includes(s.id));
+        setSearchResults(filteredResults);
+      } catch (error) {
+        console.error('Search failed:', error);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    // Debounce search
+    const timeoutId = setTimeout(searchTracks, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, playlistTracks]);
 
   async function addSongById(songId) {
     if (!user) return;
+    console.log("playlist: ", playlist);
     try {
       await addSongToPlaylist(playlist.id, songId);
+      
+      // Reload playlist tracks
+      const tracks = await api.getPlaylistTracks(playlist.id);
+      setPlaylistTracks(tracks);
+      
       setSearchQuery("");
+      setSearchResults([]);
     } catch (err) {
       console.error("Failed to add song:", err);
     }
@@ -41,9 +90,9 @@ export default function PlaylistCard({ playlist, onDelete }) {
     if (!user) return;
     try {
       await api.removeSongFromPlaylist({ playlistId: playlist.id, songId });
+      
       // Update local state
-      playlist.songs = playlist.songs.filter(id => id !== songId);
-      setPlaylists([playlist]);
+      setPlaylistTracks(prev => prev.filter(track => track.id !== songId));
     } catch (err) {
       console.error("Failed to remove song:", err);
     }
@@ -51,8 +100,8 @@ export default function PlaylistCard({ playlist, onDelete }) {
 
   function playPlaylist(e) {
     e.stopPropagation();
-    if (playlistSongs.length > 0) {
-      playSong(playlistSongs[0], playlistSongs);
+    if (playlistTracks.length > 0) {
+      playSong(playlistTracks[0], playlistTracks);
     }
   }
 
@@ -75,15 +124,15 @@ export default function PlaylistCard({ playlist, onDelete }) {
           <div style={{ fontWeight: 700, fontSize: "1.1rem" }}>{playlist.name}</div>
           <div className="muted small">{playlist.description}</div>
           <div className="muted small" style={{ marginTop: 4 }}>
-            {playlistSongs.length} {playlistSongs.length === 1 ? "song" : "songs"}
+            {loadingTracks ? "Loading..." : `${playlistTracks.length} ${playlistTracks.length === 1 ? "song" : "songs"}`}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          {/* {playlistSongs.length > 0 && (
+          {playlistTracks.length > 0 && (
             <button className="btn" onClick={playPlaylist} title="Play playlist">
               ▶ Play
             </button>
-          )} */}
+          )}
           <button className="btn secondary" onClick={handleDelete} title="Delete playlist">
             🗑
           </button>
@@ -92,13 +141,17 @@ export default function PlaylistCard({ playlist, onDelete }) {
 
       <div style={{ marginTop: 16 }}>
         <div className="muted small" style={{ marginBottom: 8, fontWeight: 600 }}>Songs in playlist</div>
-        {playlistSongs.length ? (
+        {loadingTracks ? (
+          <div className="muted small" style={{ padding: 12, textAlign: "center" }}>
+            Loading tracks...
+          </div>
+        ) : playlistTracks.length ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {playlistSongs.map((s, idx) => (
+            {playlistTracks.map((s, idx) => (
               <div 
                 key={s.id} 
                 className="playlist-song-item"
-                onClick={() => playSong(s, playlistSongs)}
+                onClick={() => playSong(s, playlistTracks)}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
                   <span className="muted small" style={{ width: 20 }}>{idx + 1}</span>
@@ -133,13 +186,18 @@ export default function PlaylistCard({ playlist, onDelete }) {
             value={searchQuery} 
             onChange={(e) => setSearchQuery(e.target.value)} 
             className="input" 
-            placeholder="Search by song name, artist, or album..."
+            placeholder="Search by song name..."
             style={{ padding: 10 }}
           />
-          {searchQuery.trim() && (
+          {isSearching && (
+            <div className="muted small" style={{ padding: 12, textAlign: "center" }}>
+              Searching...
+            </div>
+          )}
+          {searchQuery.trim() && !isSearching && (
             <div className="song-search-results">
-              {availableSongs.length > 0 ? (
-                availableSongs.slice(0, 5).map((song) => (
+              {searchResults.length > 0 ? (
+                searchResults.map((song) => (
                   <div 
                     key={song.id} 
                     className="song-search-item"
@@ -158,11 +216,6 @@ export default function PlaylistCard({ playlist, onDelete }) {
               ) : (
                 <div className="muted small" style={{ padding: 12, textAlign: "center" }}>
                   No songs found matching "{searchQuery}"
-                </div>
-              )}
-              {availableSongs.length > 5 && (
-                <div className="muted small" style={{ padding: 8, textAlign: "center" }}>
-                  Showing 5 of {availableSongs.length} results
                 </div>
               )}
             </div>
