@@ -133,9 +133,9 @@ export default function PlaylistCard({ playlist, onDelete }) {
               ▶ Play
             </button>
           )}
-          <button className="btn secondary" onClick={handleDelete} title="Delete playlist">
+          {/* <button className="btn secondary" onClick={handleDelete} title="Delete playlist">
             🗑
-          </button>
+          </button> */}
         </div>
       </div>
 

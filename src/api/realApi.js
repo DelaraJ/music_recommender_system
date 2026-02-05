@@ -145,10 +145,10 @@ export async function getPlaylistsByUser() {
   return data.playlists || data || [];
 }
 
-export async function getPlaylistById(playlistId) {
-  const data = await apiRequest(`/playlists/${playlistId}`);
-  return data.playlist || data;
-}
+// export async function getPlaylistById(playlistId) {
+//   const data = await apiRequest(`/playlists/${playlistId}`);
+//   return data.playlist || data;
+// }
 
 export async function getPlaylistTracks(playlistId) {
   const data = await apiRequest(`/playlists/${playlistId}/tracks`);
@@ -174,7 +174,7 @@ export async function addSongToPlaylist({ playlistId, songId }) {
   await sendInteraction(songId, 'add_to_playlist');
   
   // Fetch updated playlist
-  return await getPlaylistById(playlistId);
+  return await getPlaylistTracks(playlistId);
 }
 
 export async function removeSongFromPlaylist({ playlistId, songId }) {
@@ -186,7 +186,7 @@ export async function removeSongFromPlaylist({ playlistId, songId }) {
   await sendInteraction(songId, 'remove_from_playlist');
   
   // Fetch updated playlist
-  return await getPlaylistById(playlistId);
+  return await getPlaylistTracks(playlistId);
 }
 
 export async function deletePlaylist({ playlistId }) {

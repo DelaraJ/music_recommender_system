@@ -9,7 +9,7 @@ export const api = {
   getSongById: real.getSongById,
   searchTracks: real.searchTracks,
   getPlaylistsByUser: real.getPlaylistsByUser,
-  getPlaylistById: real.getPlaylistById,
+  // getPlaylistById: real.getPlaylistById,
   getPlaylistTracks: real.getPlaylistTracks,
   createPlaylist: real.createPlaylist,
   addSongToPlaylist: real.addSongToPlaylist,
